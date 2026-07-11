@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+    body { font-family: Arial, sans-serif; background: #e9ecef; margin: 0; padding: 20px 0; }
+    
+    /* Login Screen Styles */
+    #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; }
+    .login-box { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); text-align: center; }
+    .login-box h2 { margin-top: 0; color: #212529; }
+    .login-box input { margin-bottom: 15px; padding: 10px; font-size: 16px; border: 1px solid #ced4da; border-radius: 4px; width: 100%; box-sizing: border-box; text-align: center; }
+    
+    /* Hide main content initially */
+    #main-content { display: none; }
+    
+    .wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; }
+    .controls { display: flex; gap: 15px; margin-bottom: 20px; justify-content: center; width: 100%; max-width: 210mm; }
+    button { padding: 10px 20px; background: #212529; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+    button:hover { background: #495057; }
+    
+    .container { background: white; width: 210mm; padding: 40px; box-sizing: border-box; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #212529; padding-bottom: 20px; margin-bottom: 30px; align-items: flex-end; }
+    .title h1 { margin: 0; font-size: 36px; text-transform: uppercase; letter-spacing: 2px; }
+    
+    .meta-input { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 10px; gap: 10px; }
+    input.meta-field { border: 1px solid #ced4da; padding: 6px; font-family: inherit; font-size: 14px; border-radius: 3px; box-sizing: border-box; }
+    input.meta-field:focus { outline: none; border-color: #80bdff; }
+    
+    .details { display: flex; justify-content: space-between; margin-bottom: 40px; }
+    .col { width: 45%; }
+    h3 { margin-top: 0; margin-bottom: 10px; font-size: 16px; border-bottom: 1px solid #dee2e6; padding-bottom: 5px; text-transform: uppercase; color: #495057; }
+    .col p { margin: 4px 0; font-size: 14px; color: #212529; }
+    
+    .items-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed; }
+    .items-table th, .items-table td { border: 1px solid #dee2e6; padding: 12px; text-align: left; word-wrap: break-word; }
+    .items-table th { background: #f8f9fa; font-weight: bold; color: #495057; }
+    .desc-col { width: auto; }
+    .desc-col input { width: 100%; box-sizing: border-box; border: 1px solid #ced4da; padding: 6px; }
+    .amount-col { width: 150px; text-align: right; }
+    .amount-col input { width: 100%; text-align: right; box-sizing: border-box; border: 1px solid #ced4da; padding: 6px; }
+    .action-col { width: 40px; text-align: center; }
+    .total-row { font-weight: bold; font-size: 18px; }
+    
+    .bank-details { margin-top: 20px; padding: 15px; border: 1px solid #dee2e6; background: #f8f9fa; border-radius: 4px; width: 45%; box-sizing: border-box; }
+    .bank-details p { margin: 6px 0; font-size: 14px; color: #212529; }
+    
+    .no-print { display: flex; }
+    
+    @media print {
+        body { background: white; padding: 0; }
+        .wrapper { display: block; }
+        .controls, .btn-remove, .action-col { display: none !important; }
+        .container { box-shadow: none; width: 210mm; padding: 40px; margin: 0; }
+        .meta-field, .desc-col input, .amount-col input { border: none !important; background: transparent !important; padding: 0 !important; resize: none; appearance: none; -moz-appearance: none; -webkit-appearance: none; width: 100%; }
+        input:focus { outline: none; }
+    }
+</style>
+</head>
+<body>
+
+<!-- Password Screen -->
+<div id="login-screen">
+    <div class="login-box">
+        <h2>Enter Password</h2>
+        <input type="password" id="pass-input" placeholder="Password" onkeydown="if(event.key === 'Enter') checkPassword()">
+        <button onclick="checkPassword()">Unlock</button>
+    </div>
+</div>
+
+<!-- Main Application -->
+<div id="main-content" class="wrapper">
+    <div class="controls no-print">
+        <button onclick="addService()">+ Add Item</button>
+        <button onclick="window.print()">Print Invoice</button>
+        <button onclick="downloadPDF()">Download PDF</button>
+    </div>
+
+    <div class="container" id="invoice">
+        <div class="header">
+            <div class="title">
+                <h1>Invoice</h1>
+            </div>
+            <div class="meta">
+                <div class="meta-input">
+                    <strong>Invoice #:</strong> 
+                    <input type="text" id="inv-num" class="meta-field" style="width: 120px; font-weight: bold;">
+                </div>
+                <div class="meta-input">
+                    <strong>Date:</strong> 
+                    <input type="date" id="inv-date" class="meta-field" style="width: 120px;">
+                </div>
+            </div>
+        </div>
+
+        <div class="details">
+            <div class="col">
+                <h3>From</h3>
+                <p><strong>MD JALIS MAHMUD NABIL</strong></p>
+                <p>ABN: 70 741 929 192</p>
+                <p>9 Park Avenue</p>
+                <p>Punchbowl NSW 2196</p>
+                <p>Phone: +61 421 520 270</p>
+                <p>Email: jalismnabil77@gmail.com</p>
+            </div>
+            <div class="col">
+                <h3>To</h3>
+                <p><strong>Artisans du Monde Pty Ltd</strong></p>
+                <p>ABN: 21 641 379 320</p>
+                <p>P.O. Box 503</p>
+                <p>Matraville NSW 2036</p>
+                <p>Phone: 0414 171 102</p>
+                <p>Email: Operations@adum.com.au</p>
+            </div>
+        </div>
+
+        <table class="items-table" id="itemsTable">
+            <thead>
+                <tr>
+                    <th class="desc-col">Services Rendered</th>
+                    <th class="amount-col">Amount (AUD)</th>
+                    <th class="action-col no-print"></th>
+                </tr>
+            </thead>
+            <tbody id="tbody">
+                <tr>
+                    <td class="desc-col"><input type="text" placeholder="Enter service description..."></td>
+                    <td class="amount-col"><input type="number" class="amt" value="0.00" step="0.01" oninput="calcTotal()"></td>
+                    <td class="action-col no-print"><button class="btn-remove" onclick="removeRow(this)" style="padding: 4px 8px; background: #dc3545; font-size: 12px; margin: 0 auto; display: block;">X</button></td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td style="text-align: right;" class="total-row">Total Amount Due:</td>
+                    <td class="total-row amount-col" id="total">$0.00</td>
+                    <td class="action-col no-print"></td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="bank-details">
+            <h3>Payment Details</h3>
+            <p><strong>Bank:</strong> National Australia Bank (NAB)</p>
+            <p><strong>Account Name:</strong> MD JALIS MAHMUD NABIL</p>
+            <p><strong>BSB:</strong> 082-250</p>
+            <p><strong>Account Number:</strong> 790798319</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    function checkPassword() {
+        const input = document.getElementById('pass-input').value;
+        if (input === '1525') {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('main-content').style.display = 'flex';
+        } else {
+            alert('Incorrect Password');
+        }
+    }
+
+    const dateInput = document.getElementById('inv-date');
+    const numInput = document.getElementById('inv-num');
+
+    function generateInvoiceNumber(dateString) {
+        if (!dateString) return;
+        const d = new Date(dateString);
+        const yy = String(d.getFullYear()).slice(-2);
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const randomStr = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+        numInput.value = `${yy}${mm}${dd}${randomStr}`;
+    }
+
+    dateInput.addEventListener('change', (e) => {
+        generateInvoiceNumber(e.target.value);
+    });
+
+    const today = new Date();
+    dateInput.valueAsDate = today;
+    generateInvoiceNumber(dateInput.value);
+
+    function addService() {
+        const tbody = document.getElementById('tbody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="desc-col"><input type="text" placeholder="Enter service description..."></td>
+            <td class="amount-col"><input type="number" class="amt" value="0.00" step="0.01" oninput="calcTotal()"></td>
+            <td class="action-col no-print"><button class="btn-remove" onclick="removeRow(this)" style="padding: 4px 8px; background: #dc3545; font-size: 12px; margin: 0 auto; display: block;">X</button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    function removeRow(btn) {
+        btn.closest('tr').remove();
+        calcTotal();
+    }
+
+    function calcTotal() {
+        let total = 0;
+        document.querySelectorAll('.amt').forEach(inp => {
+            total += parseFloat(inp.value) || 0;
+        });
+        document.getElementById('total').innerText = '$' + total.toFixed(2);
+    }
+
+    function downloadPDF() {
+        window.scrollTo(0, 0); 
+        
+        const invoiceNum = document.getElementById('inv-num').value;
+        const element = document.getElementById('invoice');
+        
+        const inputs = element.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.dataset.prevBorder = input.style.border || '';
+            input.dataset.prevBg = input.style.background || '';
+            input.dataset.prevPadding = input.style.padding || '';
+            input.style.border = 'none';
+            input.style.background = 'transparent';
+            input.style.padding = '0';
+        });
+        
+        const noPrintElements = element.querySelectorAll('.no-print');
+        noPrintElements.forEach(el => el.style.display = 'none');
+
+        const opt = {
+            margin:       0, 
+            filename:     'Invoice_' + invoiceNum + '.pdf',
+            image:        { type: 'jpeg', quality: 1 },
+            html2canvas:  { 
+                scale: 2, 
+                useCORS: true, 
+                scrollX: 0, 
+                scrollY: 0 
+            },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save().then(() => {
+            inputs.forEach(input => {
+                input.style.border = input.dataset.prevBorder;
+                input.style.background = input.dataset.prevBg;
+                input.style.padding = input.dataset.prevPadding;
+            });
+            noPrintElements.forEach(el => {
+                if(!el.classList.contains('controls')) el.style.display = '';
+            });
+        });
+    }
+</script>
+</body>
+</html>
